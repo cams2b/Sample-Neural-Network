@@ -1,0 +1,202 @@
+---
+title: "Using Sample Data to Understand a Neural Network"
+author: "Cameron Beeche"
+date: "11/2/2020"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+## R Markdown
+
+## 1. Choosing our distribution
+Machine learning focuses on understanding patterns that exist within a given dataset. In order for our sample neural network to properly work, we must decide on the distribution of the given data. For our example we will be utilizing a standard gaussian distribution. This distriibution is commonly referred to as the "Bell curve" due to its destinct shape. The gaussian distribution is modeled using two main variables, the mean or average $\mu$ and the standard deviation $\sigma$.
+
+$$
+f(x)= \frac{1}{\sigma\sqrt{2\pi}} \times \exp\left(\left(-\frac{x-\mu}{\sigma}\right)^2\right)
+$$
+The term $\exp$ stands for "e raised to the power of."
+
+
+## 2. Generating the sample input x.
+
+Prior to working with neural networks, we must generate a sample input to work with. 
+```{r}
+x_input <- data.frame(x = rnorm(n = 251, mean = 0, sd = 2)) 
+```
+
+The above code is generating our input values x. These values will be used to generate our response variable y. 
+
+## 3. Generating the response value y.
+
+Now that we have generated our input values, we must pass these values into another call to `rnorm()` which shall calculate the output y based on the equation that we choose to use.
+```{r}
+sample_df <- x_input %>% mutate(y = rnorm(n = n(), mean = cos(x) + I(x), sd = 0.15))
+```
+
+The `sample_df` is being set to equal our `x_input`. This value is then "piped" into a `mutate()` call with the `%>%` operator where the given equation is used to generate our values. In our example we will be utilizing the equation: cos(x) + x. This simple equation will provide a relatively simple pattern for us to model.
+
+## 4. View our data.
+
+Now that we have generated our data, it is time to begin exploratory data analysis (EDA). EDA can account for up to 80% of a machine learning engineer's time when they are attempting to fit a model. EDA should provide the engineer insight into the relationship between the input value and the output.
+
+First, lets view our data to make sure everything is looking okay.
+
+```{r}
+### view our data
+sample_df %>% glimpse()
+```
+
+We can now begin to understand the trends of our data. We will first use the `summary()` function in R to generate the mean, median, mode, and qunatiles for our data. This is a good practice when working with complex datasets.
+
+```{r}
+### generate
+sample_df %>% summary()
+```
+
+## 5. Plot our data.
+
+One of our strongest tools for understanding data is to visualize the relationships in a plot. We will be using the `ggplot` library within the `tidyverse` library. These packages provide useful resources for understanding the relationships between data. The below code will call the `tidyverse` library.
+
+
+We can use `ggplot` to plot a scatterplot for our response y, given x. We take our `sample_df` variable and pipe it into the call to `ggplot`. We will then use the `mapping` function to set our x and y variables for the plot. Finally we call `geom_point()` to plot our data.
+```{r}
+sample_df %>% ggplot(mapping = aes(x = x, y = y)) + geom_point()
+```
+At first, this data may appear rather "messy." We can learn about this data through plotting a simple equation with the `geom_smooth` function.
+```{r}
+sample_df %>% ggplot(mapping = aes(x = x, y = y)) + geom_point(color = "red", alpha =0.5) + geom_smooth()
+```
+
+## 6. Prepare our data to be modelled.
+
+When generating a model to understand a pattern within data, it is important to not "overfit" the model. Overfitting occurs, when the model becomes overly complex and accurate with the training data. Therefore, prior to building our model, we shall split our data into a "training" set and a "test" set. We will use 80% of our data to train our neural network, and 20% to test our model.
+
+```{r}
+sample_size <- floor(251 * 0.8)
+train <- sample_df[1:sample_size, ]
+test <- sample_df[(sample_size + 1): 251, ]
+```
+The above code splits our data into `train` and `test` sets. We will first use the training set to train our model.
+
+## 7. Designing our model.
+
+Prior to implementing our model, it is important to understand how many hidden layers we are going to consider, as well as the number of neurons per layer. We shall utilize the `neuralnet` library to handle the algebra behind designing our model.
+
+```{r}
+library(neuralnet)
+```
+Based upon our exploratory data analysis, the pattern that exists within our data is not too complex.This will allow us to only require a  model that has a single layer of hidden units. Rather than implement a singular neural network model, we will compare our performance across three separate models. One with three neurons, five neurons, and seven neurons.
+
+```{r}
+### initialize hidden unit size
+mod1_units <- 3
+mod2_units <- 5
+mod3_units <- 7
+```
+
+Now that we have initialized our hidden unit variables, we can consider two other aspects of our network, our error and activation functions. The output of our data is a continuous variable, causing us to use a regression model. We will use the sum of squared errors `"sse"` function to calculate our models' performance. Now that our error term is defined we can determine our models' activation function. The `neuralnet` library offers us two different functions: `tanh` and `logistic`. We will use `logistic` for the first and third models and we shall use `tanh` for the second model.
+```{r}
+error <- "sse"
+activ1 <- "logistic"
+activ2 <- "tanh"
+```
+
+## 8. Training our models
+
+Finally, we are ready to train our models! We will use the `train` dataset that we generated earlier on all three of our models. We will use the `neuralnet` function to train our models. Providing the above functions as well as other arguments to specify the processing of the data.
+
+```{r}
+set.seed(19382)
+mod1 <- neuralnet(y ~ x,
+                  data = train,
+                  hidden = mod1_units,
+                  err.fct = error,
+                  act.fct = activ1,
+                  linear.output = TRUE,
+                  likelihood = TRUE)
+```
+
+
+```{r}
+set.seed(15213)
+mod2 <- neuralnet(y ~ x,
+                  data = train,
+                  hidden = mod2_units,
+                  err.fct = error,
+                  act.fct = activ2,
+                  linear.output = TRUE,
+                  likelihood = TRUE)
+```
+
+
+
+```{r}
+set.seed(483751)
+mod3 <- neuralnet(y ~ x,
+                  data = train,
+                  hidden = mod3_units,
+                  err.fct = error,
+                  act.fct = activ1,
+                  linear.output = TRUE,
+                  likelihood = TRUE)
+```
+
+Now that we have trained our three models, with the power of R we can visualize the architectures for each of these models!
+
+```{r}
+plot(mod1, rep = "best")
+```
+
+```{r}
+plot(mod2, rep = "best")
+```
+
+```{r}
+plot(mod3, rep = "best")
+```
+Now that we are able to visualize the architectures of these models we have a better understanding of the differences in their given complexities, as well as their error values. It is interesting to notice that the most complex model required the least amount of steps. This might make you think that it took less time to generate the 7 neuron model, but each iteration took additional computation.
+
+## 9. Testing our data.
+
+Now that we have generated three models we can test the performance of our "best" model on the `test` dataset. We will utilize the `compute()` function within the `neuralnet` library to test the performance of our model. This function will take our hold out data and run it through our model to generate our predicted responses.
+```{r}
+mod3_results <- compute(mod3, test)
+pred_actual <- data.frame(x = test$x, actual = test$y, predicted = mod3_results$net.result)
+
+```
+After our results were calculated, we can use the second line of code above to organize our results into a `data.frame` so we can compare our actual results to our predicted results.
+
+
+## 10. Viewing our results.
+
+Utilizing the `ggplot` functions we shall visualize the results of our neural network. We will start by using the `geom_point()` function from earlier and apply it to both the `predicted` and the `actual` data. 
+
+```{r}
+pred_actual %>% ggplot(mapping = aes(x = x, y = predicted)) + geom_point(color = "red") +
+  geom_point(mapping = aes(x = x, y =actual)) + theme_bw()
+```
+The above graph plots the predicted values from our neural network in red, and the actual values in black. We can also convert the predicted data points into a line to understand the overall trend.
+
+```{r}
+pred_actual %>% ggplot(mapping = aes(x = x, y = predicted)) + geom_line(color = "red") + 
+  geom_point(mapping = aes(x = x, y = actual)) + theme_bw()
+```
+We have now completed our sample data analysis! We walked through the process of generating a sample data set with a gaussian distribution and fake "noise" to complicate generating a model. Once we generated this data we were able to perform exploratory data analysis (EDA) to look for general trends in our model. After completing EDA we generated three different models of various complexity to determine the overall performance. Finally, we were able to test our model on our hold out "test" set to determine our model's ability to interpret new data. Neural networks are incredibly flexible models that can be applied in various industries. This example has illustrated only a fraction of what neural networks are capable of.
+
+
+
+
+
+
